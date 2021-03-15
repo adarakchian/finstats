@@ -35,6 +35,7 @@ class EtfStockRvAlgo(QCAlgorithm):
         self.AddUniverse(self.Universe.Index.QC500)
 
         self.UniverseSettings.Resolution = Resolution.Daily
+        self.UniverseSettings.Leverage = 3
 
         # noinspection PyTypeChecker
         self.AddAlpha(EtfStockRvAlphaModel(self))
@@ -67,8 +68,6 @@ class EtfStockRvAlgo(QCAlgorithm):
                 shorts.append(exposure)
         long = np.array(longs).sum() * 100
         short = np.array(shorts).sum() * 100
-        self.Debug(f"Longs: {long}")
-        self.Debug(f"Shorts: {short}")
         net = long + short
 
         self.Plot("Exposures", "Long", long)
