@@ -10,7 +10,7 @@ class EtfStockRvAlgo(QCAlgorithm):
     SD_TO_OPEN = 2
     SD_TO_CLOSE_LONG = 0.75
     SD_TO_CLOSE_SHORT = 0.5
-    MAX_NORMAL_POSITION = 3 / 100
+    MAX_NORMAL_POSITION = 0.2 / 100
     OPTIMAL_NET_LONG = 0.8
 
     _stock_to_etf_ticker_map: typing.Dict[Symbol, str] = {}
@@ -35,7 +35,7 @@ class EtfStockRvAlgo(QCAlgorithm):
         self.AddUniverse(self.Universe.Index.QC500)
 
         self.UniverseSettings.Resolution = Resolution.Daily
-        self.UniverseSettings.Leverage = 3
+        self.UniverseSettings.MinimumTimeInUniverse = timedelta(days=90)
 
         # noinspection PyTypeChecker
         self.AddAlpha(EtfStockRvAlphaModel(self))

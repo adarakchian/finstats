@@ -65,20 +65,14 @@ class EtfStockRvPortfolioConstructor(PortfolioConstructionModel):
         return hedge_exposures, positions_to_close, unchanged_positions_df
 
     def CreateTargets(self, algorithm: QCAlgorithm, insights: typing.List[Insight]) -> typing.List[IPortfolioTarget]:
-        # target = PortfolioTarget.Percent(algorithm, "IBM", 0.1)
         abs_scores: pd.Series = self.algorithm.s_scores.loc[:, 's_score'].abs().clip(2, 4)
         max_size = self.algorithm.MAX_NORMAL_POSITION
-        rebalance_threshold = max_size * 1
 
         performance = self.algorithm.stocks_performance
 
         new_positions = self.get_new_positions(insights)
         new_positions_list: typing.List[Symbol] = new_positions.index.tolist()
         hedge_exposures, positions_to_close, unchanged_positions = self.parse_existing(algorithm)
-
-        # new_portfolio_size = len(new_positions) + len(unchanged_positions)
-        # all_positions = pd.concat([new_positions, unchanged_positions])
-        # all_positions_list = all_positions.index.tolist()
         if new_positions.empty and len(positions_to_close) == 0:
             return []
 
@@ -86,22 +80,20 @@ class EtfStockRvPortfolioConstructor(PortfolioConstructionModel):
         total_allowed_weight = max_size * len(inverse_volatility)
         target_weights: pd.Series = inverse_volatility / inverse_volatility.sum()
         target_weights = target_weights.multiply(total_allowed_weight)
-        target_weights = target_weights * abs_scores.reindex(target_weights.index).fillna(2).divide(2)
+        target_weights = target_weights * abs_scores.reindex(target_weights.index).fillna(2).divide(2).clip(1, 2)
         total_exposure = pd.concat([new_positions, unchanged_positions])
         total_exposure.loc[target_weights.index, "weight"] = target_weights
         total_exposure.loc[:, "weight"] *= total_exposure.loc[:, "direction"]
         total_exposure.loc[:, "etf_weight"] = total_exposure.loc[:, "weight"] * total_exposure.loc[:, "ratio"]
-        
+
         target_stock: typing.Dict[Symbol, float] = total_exposure.loc[target_weights.index, "weight"].to_dict()
         target_hedge: typing.Dict[Symbol, float] = total_exposure.groupby("etf").sum().loc[:, "etf_weight"].to_dict()
         self.existing_hedges_list = list(target_hedge.keys())
 
         position_dict: typing.Dict[Symbol, float] = {**target_stock, **target_hedge}
-
         targets = [PortfolioTarget.Percent(algorithm, symbol, weight) for symbol, weight in position_dict.items()]
         for symbol in positions_to_close:
             targets.append(PortfolioTarget.Percent(algorithm, symbol, 0))
-
         return targets
 
     def OnSecuritiesChanged(self, algorithm: QCAlgorithm, changes: SecurityChanges) -> None:
