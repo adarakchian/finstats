@@ -107,7 +107,7 @@ class StatisticalArbitrage(QCAlgorithm):
 
     def create_insights(self, score: pd.DataFrame):
         securities = self.Portfolio.Keys
-        investments = [s for s in securities if self.Portfolio[s].Invested]
+        investments = [str(s) for s in securities if self.Portfolio[s].Invested]
         filtered = score.loc[
             (score.k > 252 / 30) &
             (score.s_score.abs() > 2) &
@@ -121,11 +121,11 @@ class StatisticalArbitrage(QCAlgorithm):
         self.EmitInsights(insights)
         return filtered
 
-    def handle_trades(self, full, ou_parameters: pd.DataFrame):
-        score: pd.Series = ou_parameters.loc[:, 's_score']
+    def handle_trades(self, full_scores: pd.DataFrame, filtered_scores: pd.DataFrame):
+        closures = self.find_converged(full_scores.loc[:, 's_score'])
+        score: pd.Series = filtered_scores.loc[:, 's_score']
         new_positions_length = len(score)
         # stocks, hedges = self.investments
-        closures = self.find_converged(full)
         stock_weights = self.stock_weights
         nominal_weights: pd.Series = (score / score.abs().sum()).sort_values(ascending=False)
         max_new_positions = self.MAX_POSITIONS - len(stock_weights) + len(closures)
@@ -163,15 +163,15 @@ class StatisticalArbitrage(QCAlgorithm):
         positions = positions.set_index("stock")
         return positions
 
-    def find_converged(self, score: pd.Series):
+    def find_converged(self, all_scores: pd.Series):
         stocks, _ = self.investments
         positions_to_close = []
         for symbol in stocks:
             holding = self.Portfolio[symbol]
-            if symbol not in score.index:
+            if symbol not in all_scores.index:
                 positions_to_close.append(symbol)
                 continue
-            symbol_score = score.loc[symbol]
+            symbol_score = all_scores.loc[symbol]
             long_condition = holding.IsLong and symbol_score > -self.SD_TO_CLOSE_LONG
             short_condition = holding.IsShort and symbol_score < self.SD_TO_CLOSE_SHORT
             if long_condition or short_condition:
